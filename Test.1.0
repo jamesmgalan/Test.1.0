@@ -1,0 +1,43 @@
+import alpaca_trade_api as tradeapi
+from datetime import datetime, timedelta
+
+# Define Alpaca API credentials
+api_key = 'YOUR_API_KEY'
+api_secret = 'YOUR_API_SECRET'
+base_url = 'https://paper-api.alpaca.markets'
+
+# Connect to the Alpaca API
+api = tradeapi.REST(api_key, api_secret, base_url, api_version='v2')
+
+# Define the time range to look for increased trading volume
+end_time = datetime.utcnow()
+start_time = end_time - timedelta(hours=1)
+
+# Get a list of all tradable assets on the Alpaca platform
+assets = api.list_assets(status='active')
+
+# Loop through each asset and check for an increase in trading volume
+for asset in assets:
+    symbol = asset.symbol
+    # Get the trading data for the asset over the past hour
+    barset = api.get_barset(symbol, '1H', start=start_time, end=end_time)
+    if len(barset[symbol]) > 0:
+        # Get the most recent trading volume and the trading volume from an hour ago
+        volume_current = barset[symbol][-1].volume
+        volume_previous = barset[symbol][0].volume
+        # Calculate the percentage change in trading volume
+        volume_change = (volume_current - volume_previous) / volume_previous
+        if volume_change > 0.5:
+            # Get the opening and closing prices for the asset over the past hour
+            open_price = barset[symbol][0].o
+            close_price = barset[symbol][-1].c
+            # Check if the closing price is higher than the opening price
+            if close_price > open_price:
+                # Submit a buy order for the stock
+                api.submit_order(
+                    symbol=symbol,
+                    qty=1,
+                    side='buy',
+                    type='market',
+                    time_in_force='gtc'
+                )
